@@ -96,6 +96,11 @@ canvas { display:block; cursor:crosshair; }
   <input class="lobby-input" id="name-input" maxlength="16" placeholder="Enter callsign..." />
   <div class="lobby-label">Room code</div>
   <input class="lobby-input" id="room-input" maxlength="12" placeholder="e.g. alpha01" />
+  <div class="lobby-label">Map</div>
+  <div class="diff-row">
+    <button class="diff-btn d2 selected" data-map="city">🏚️ ABANDONED CITY</button>
+    <button class="diff-btn d1" data-map="arctic">❄️ ARCTIC BASE</button>
+  </div>
   <div class="lobby-label">Bot difficulty</div>
   <div class="diff-row">
     <button class="diff-btn d0 selected" data-diff="0">BEGINNER</button>
@@ -179,11 +184,32 @@ const DIFFICULTIES = [
   { name:'GENERAL',    color:'#e24b4a', speed:2.6, hp:180, shotCooldown:700,  spread:0.03, credits:100, range:460 },
 ];
 
-const MAP_OBJECTS = [
-  {x:80,y:80,w:60,h:120},{x:300,y:60,w:80,h:40},{x:540,y:80,w:60,h:120},
-  {x:80,y:280,w:60,h:120},{x:540,y:280,w:60,h:120},
-  {x:230,y:200,w:40,h:40},{x:400,y:220,w:40,h:40},{x:300,y:340,w:80,h:40},
-];
+const MAPS = {
+  city: {
+    name: 'ABANDONED CITY',
+    floor1: '#1a1a18', floor2: '#1e1e1c', grid: '#252523',
+    wallFill: '#2d2d2a', wallTop: '#383833', wallBorder: '#444440',
+    objects: [
+      {x:80,y:80,w:60,h:120},{x:300,y:60,w:80,h:40},{x:540,y:80,w:60,h:120},
+      {x:80,y:280,w:60,h:120},{x:540,y:280,w:60,h:120},
+      {x:230,y:200,w:40,h:40},{x:400,y:220,w:40,h:40},{x:300,y:340,w:80,h:40},
+    ]
+  },
+  arctic: {
+    name: 'ARCTIC BASE',
+    floor1: '#d0dce8', floor2: '#c8d4e0', grid: '#b8c8d8',
+    wallFill: '#7a9ab8', wallTop: '#9ab8d0', wallBorder: '#5a7a98',
+    objects: [
+      {x:60,y:60,w:80,h:30},{x:260,y:50,w:30,h:100},{x:480,y:60,w:80,h:30},
+      {x:60,y:380,w:80,h:30},{x:480,y:380,w:80,h:30},{x:260,y:320,w:30,h:100},
+      {x:160,y:180,w:100,h:30},{x:380,y:180,w:100,h:30},
+      {x:270,y:230,w:100,h:30},{x:100,y:260,w:30,h:80},{x:510,y:260,w:30,h:80},
+    ]
+  }
+};
+
+let selectedMap = 'city';
+let MAP_OBJECTS = MAPS.city.objects;
 
 const BOT_NAMES=['Ghost','Reaper','Viper','Cobra','Wolf','Hawk','Storm','Blade','Frost','Raven','Tank','Fury','Zeus','Titan','Shadow'];
 const MAX_BOTS=6, BOT_SPAWN_INTERVAL=4000;
@@ -203,6 +229,15 @@ const ctx=canvas.getContext('2d');
 function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight-38;}
 resize(); window.addEventListener('resize',resize);
 
+// Map buttons
+document.querySelectorAll('[data-map]').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('[data-map]').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedMap=btn.dataset.map;
+  };
+});
+
 // Difficulty buttons
 document.querySelectorAll('.diff-btn').forEach(btn=>{
   btn.onclick=()=>{
@@ -219,6 +254,7 @@ document.getElementById('room-input').addEventListener('keydown',e=>{if(e.key===
 function joinGame(){
   myName=document.getElementById('name-input').value.trim()||('Soldier_'+Math.floor(Math.random()*9999));
   roomId=document.getElementById('room-input').value.trim()||'default';
+  MAP_OBJECTS=MAPS[selectedMap].objects;
   document.getElementById('lobby').style.display='none';
   document.getElementById('hud').style.display='flex';
   document.getElementById('chat-box').style.display='block';
@@ -441,16 +477,31 @@ function spawnParticles(x,y,color,count,speed){
 }
 
 function drawMap(){
-  ctx.fillStyle='#1a1a18'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#1e1e1c';
+  const m=MAPS[selectedMap];
+  ctx.fillStyle=m.floor1; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle=m.floor2;
   for(let gx=0;gx<canvas.width;gx+=40)for(let gy=0;gy<canvas.height;gy+=40)if((gx+gy)%80===0)ctx.fillRect(gx,gy,40,40);
-  ctx.strokeStyle='#252523'; ctx.lineWidth=0.5;
+
+  // Arctic snowflake details
+  if(selectedMap==='arctic'){
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    for(let gx=20;gx<canvas.width;gx+=80)for(let gy=20;gy<canvas.height;gy+=80){
+      ctx.beginPath();ctx.arc(gx,gy,2,0,Math.PI*2);ctx.fill();
+    }
+  }
+
+  ctx.strokeStyle=m.grid; ctx.lineWidth=0.5;
   for(let gx=0;gx<canvas.width;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,canvas.height);ctx.stroke();}
   for(let gy=0;gy<canvas.height;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(canvas.width,gy);ctx.stroke();}
   for(const obj of MAP_OBJECTS){
-    ctx.fillStyle='#2d2d2a'; ctx.fillRect(obj.x,obj.y,obj.w,obj.h);
-    ctx.fillStyle='#383833'; ctx.fillRect(obj.x+4,obj.y+4,obj.w-8,6);
-    ctx.strokeStyle='#444440'; ctx.lineWidth=1; ctx.strokeRect(obj.x,obj.y,obj.w,obj.h);
+    ctx.fillStyle=m.wallFill; ctx.fillRect(obj.x,obj.y,obj.w,obj.h);
+    ctx.fillStyle=m.wallTop; ctx.fillRect(obj.x+4,obj.y+4,obj.w-8,6);
+    ctx.strokeStyle=m.wallBorder; ctx.lineWidth=1; ctx.strokeRect(obj.x,obj.y,obj.w,obj.h);
+    // Snow on top of walls
+    if(selectedMap==='arctic'){
+      ctx.fillStyle='rgba(255,255,255,0.7)';
+      ctx.fillRect(obj.x,obj.y,obj.w,5);
+    }
   }
   for(const bp of bloodPools){ctx.globalAlpha=bp.alpha*0.5;ctx.fillStyle='#5a0a0a';ctx.beginPath();ctx.ellipse(bp.x,bp.y,bp.r,bp.r*0.6,bp.angle,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
 }
