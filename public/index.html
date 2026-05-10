@@ -4,7 +4,553 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WARFARE ONLINE</title>
+<script src="/socket.io/socket.io.js"></script><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WARFARE ONLINE</title>
 <script src="/socket.io/socket.io.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a0a; color:#e0e0e0; font-family:'Courier New',monospace; overflow:hidden; }
+
+#lobby { position:fixed; top:0; left:0; width:100%; height:100%; background:#0a0a0a; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; z-index:100; }
+#lobby h1 { color:#EF9F27; font-size:36px; letter-spacing:6px; margin-bottom:4px; }
+#lobby .sub { color:#555; font-size:12px; margin-top:-10px; letter-spacing:2px; }
+.lobby-input { background:#111; border:1px solid #333; color:#e0e0e0; padding:10px 16px; border-radius:4px; font-family:'Courier New'; font-size:14px; width:260px; }
+.lobby-input:focus { outline:none; border-color:#EF9F27; }
+.lobby-btn { background:#1a1a1a; border:1px solid #EF9F27; color:#EF9F27; padding:10px 32px; border-radius:4px; cursor:pointer; font-family:'Courier New'; font-size:14px; letter-spacing:2px; }
+.lobby-btn:hover { background:#EF9F27; color:#000; }
+.lobby-label { color:#888; font-size:11px; text-transform:uppercase; letter-spacing:1px; align-self:flex-start; margin-left:calc(50% - 130px); }
+.diff-row { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:320px; }
+.diff-btn { background:#111; border:1px solid #333; color:#888; padding:6px 10px; border-radius:4px; cursor:pointer; font-family:'Courier New'; font-size:11px; letter-spacing:1px; transition:all 0.15s; }
+.diff-btn:hover { border-color:#EF9F27; color:#EF9F27; }
+.diff-btn.selected { color:#000; font-weight:bold; }
+.diff-btn.d0.selected { background:#63a022; border-color:#63a022; }
+.diff-btn.d1.selected { background:#4a8abf; border-color:#4a8abf; }
+.diff-btn.d2.selected { background:#EF9F27; border-color:#EF9F27; }
+.diff-btn.d3.selected { background:#e07020; border-color:#e07020; }
+.diff-btn.d4.selected { background:#e24b4a; border-color:#e24b4a; }
+
+#hud { display:flex; justify-content:space-between; align-items:center; padding:6px 12px; background:rgba(0,0,0,0.9); border-bottom:1px solid #222; font-size:11px; flex-wrap:wrap; gap:6px; }
+.hud-group { display:flex; align-items:center; gap:12px; }
+.hud-label { color:#555; font-size:9px; text-transform:uppercase; letter-spacing:1px; }
+.hud-val { color:#e0e0e0; font-size:12px; font-weight:bold; }
+.hud-val.gold { color:#EF9F27; }
+.hud-val.green { color:#63a022; }
+#health-bar-wrap { width:70px; height:5px; background:#222; border-radius:3px; overflow:hidden; }
+#health-bar { height:100%; background:#63a022; border-radius:3px; transition:width 0.15s, background 0.15s; }
+.hud-btn { background:#111; border:1px solid #2a2a2a; color:#888; padding:3px 8px; border-radius:3px; cursor:pointer; font-family:'Courier New'; font-size:10px; }
+.hud-btn:hover { border-color:#EF9F27; color:#EF9F27; }
+#diff-badge { font-size:10px; padding:2px 8px; border-radius:3px; font-weight:bold; }
+
+canvas { display:block; cursor:crosshair; }
+
+#kill-feed { position:fixed; top:46px; right:10px; z-index:9; pointer-events:none; }
+.kf-entry { font-size:11px; color:#e24b4a; background:rgba(0,0,0,0.8); padding:2px 7px; border-radius:2px; margin-bottom:3px; animation:fadeKF 2.5s forwards; }
+.kf-entry.info { color:#EF9F27; }
+.kf-entry.credit { color:#63a022; }
+@keyframes fadeKF { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+
+#scoreboard { display:none; position:fixed; top:50px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.95); border:1px solid #333; border-radius:6px; z-index:20; min-width:340px; }
+#scoreboard h3 { color:#EF9F27; font-size:13px; text-align:center; padding:10px; border-bottom:1px solid #222; letter-spacing:2px; }
+#score-table { width:100%; border-collapse:collapse; font-size:11px; }
+#score-table th { color:#555; padding:6px 12px; text-align:left; font-weight:normal; border-bottom:1px solid #1a1a1a; }
+#score-table td { padding:5px 12px; border-bottom:1px solid #111; }
+.score-me { background:#0d1a0d; }
+
+#chat-box { position:fixed; bottom:0; left:0; width:280px; z-index:10; }
+#chat-msgs { height:100px; overflow-y:auto; padding:6px; display:flex; flex-direction:column; gap:2px; }
+.chat-msg { font-size:10px; color:#888; background:rgba(0,0,0,0.6); padding:2px 6px; border-radius:2px; }
+.chat-msg .chat-name { color:#EF9F27; }
+#chat-input-row { display:flex; background:rgba(0,0,0,0.85); border-top:1px solid #222; }
+#chat-input { flex:1; background:transparent; border:none; color:#e0e0e0; font-family:'Courier New'; font-size:11px; padding:5px 8px; outline:none; }
+#chat-send { background:none; border:none; color:#555; cursor:pointer; padding:0 8px; font-family:'Courier New'; font-size:11px; }
+#chat-send:hover { color:#EF9F27; }
+
+#dead-banner { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.9); border:1px solid #e24b4a; border-radius:8px; padding:20px 40px; text-align:center; z-index:15; }
+#dead-banner h2 { color:#e24b4a; font-size:22px; letter-spacing:3px; }
+#dead-banner p { color:#555; font-size:12px; margin-top:6px; }
+
+#shop-panel { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:20; overflow-y:auto; padding:20px; }
+#shop-panel h2 { color:#EF9F27; font-size:18px; margin-bottom:4px; letter-spacing:2px; }
+.shop-sub { color:#555; font-size:11px; margin-bottom:16px; }
+.shop-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(155px,1fr)); gap:10px; max-width:800px; }
+.shop-item { background:#111; border:1px solid #222; border-radius:6px; padding:12px; cursor:pointer; transition:border-color 0.15s; }
+.shop-item:hover { border-color:#EF9F27; }
+.shop-item.owned { border-color:#63a022; }
+.shop-item.equipped { border-color:#63a022; background:#0d150d; }
+.item-name { font-size:13px; font-weight:bold; color:#e0e0e0; margin-bottom:4px; }
+.item-stat { font-size:10px; color:#555; margin-bottom:2px; }
+.item-price { font-size:11px; color:#EF9F27; margin-top:6px; }
+.item-price.owned { color:#63a022; }
+#close-shop { margin-top:16px; background:#1a1a1a; border:1px solid #333; color:#e0e0e0; padding:8px 20px; border-radius:4px; cursor:pointer; font-family:'Courier New'; font-size:12px; }
+#close-shop:hover { border-color:#EF9F27; }
+
+#controls-hint { position:fixed; bottom:40px; right:8px; font-size:9px; color:#2a2a2a; pointer-events:none; z-index:5; text-align:right; }
+.credit-popup { position:fixed; font-size:13px; font-weight:bold; color:#63a022; pointer-events:none; z-index:50; animation:floatUp 1.2s forwards; }
+@keyframes floatUp { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-60px)} }
+</style>
+</head>
+<body>
+
+<div id="lobby">
+  <h1>WARFARE</h1>
+  <p class="sub">ONLINE MULTIPLAYER</p>
+  <div class="lobby-label">Your callsign</div>
+  <input class="lobby-input" id="name-input" maxlength="16" placeholder="Enter callsign..." />
+  <div class="lobby-label">Room code</div>
+  <input class="lobby-input" id="room-input" maxlength="12" placeholder="e.g. alpha01" />
+  <div class="lobby-label">Bot difficulty</div>
+  <div class="diff-row">
+    <button class="diff-btn d0 selected" data-diff="0">BEGINNER</button>
+    <button class="diff-btn d1" data-diff="1">NOVICE</button>
+    <button class="diff-btn d2" data-diff="2">LIEUTENANT</button>
+    <button class="diff-btn d3" data-diff="3">ADMIRAL</button>
+    <button class="diff-btn d4" data-diff="4">GENERAL</button>
+  </div>
+  <button class="lobby-btn" id="join-btn">DEPLOY</button>
+  <p style="color:#333;font-size:10px">Same room code = same match &nbsp;|&nbsp; Bots fill the battlefield</p>
+</div>
+
+<div id="hud" style="display:none">
+  <div class="hud-group">
+    <div><div class="hud-label">Health</div>
+      <div style="display:flex;align-items:center;gap:5px;margin-top:2px">
+        <div id="health-bar-wrap"><div id="health-bar" style="width:100%"></div></div>
+        <span class="hud-val" id="hp-val">100</span>
+      </div>
+    </div>
+    <div><div class="hud-label">Ammo</div><div class="hud-val" id="ammo-val">30/90</div></div>
+    <div><div class="hud-label">Weapon</div><div class="hud-val" id="weapon-val">M4A1</div></div>
+  </div>
+  <div class="hud-group">
+    <div><div class="hud-label">K / D</div><div class="hud-val green" id="kd-val">0 / 0</div></div>
+    <div><div class="hud-label">Credits</div><div class="hud-val gold" id="credits-val">0</div></div>
+    <div><div class="hud-label">Bots</div><div class="hud-val" id="bots-val">0</div></div>
+    <div id="diff-badge"></div>
+    <button class="hud-btn" id="shop-btn">SHOP [B]</button>
+    <button class="hud-btn" id="reload-btn">RELOAD [R]</button>
+    <button class="hud-btn" id="score-btn">SCORES [TAB]</button>
+  </div>
+</div>
+
+<canvas id="canvas"></canvas>
+<div id="kill-feed"></div>
+<div id="controls-hint">WASD move | Mouse aim+shoot | R reload | B shop | TAB scores | T chat</div>
+
+<div id="scoreboard">
+  <h3>SCOREBOARD</h3>
+  <table id="score-table">
+    <thead><tr><th>Name</th><th>K</th><th>D</th><th>Credits</th></tr></thead>
+    <tbody id="score-body"></tbody>
+  </table>
+</div>
+
+<div id="chat-box" style="display:none">
+  <div id="chat-msgs"></div>
+  <div id="chat-input-row">
+    <input id="chat-input" placeholder="Press T to chat..." maxlength="80" />
+    <button id="chat-send">SEND</button>
+  </div>
+</div>
+
+<div id="dead-banner"><h2>YOU DIED</h2><p id="dead-msg">Respawning in 3s...</p></div>
+
+<div id="shop-panel">
+  <h2>ARMORY</h2>
+  <div class="shop-sub" id="shop-credits-label">Credits: 0</div>
+  <div class="shop-grid" id="shop-grid"></div>
+  <button id="close-shop">CLOSE [B]</button>
+</div>
+
+<script>
+const SERVER_URL = window.location.origin;
+
+const WEAPONS = [
+  { id:'m4',    name:'M4A1',        dmg:25,  rof:150,  reload:2000, mag:30,  maxAmmo:90,  spread:0.04, range:400, price:0,   owned:true  },
+  { id:'ak',    name:'AK-47',       dmg:35,  rof:180,  reload:2200, mag:30,  maxAmmo:90,  spread:0.06, range:380, price:300, owned:false },
+  { id:'mp5',   name:'MP5',         dmg:18,  rof:80,   reload:1600, mag:45,  maxAmmo:135, spread:0.03, range:280, price:200, owned:false },
+  { id:'deagle',name:'Desert Eagle',dmg:80,  rof:600,  reload:1800, mag:7,   maxAmmo:35,  spread:0.02, range:500, price:150, owned:false },
+  { id:'m249',  name:'M249 SAW',    dmg:22,  rof:100,  reload:3500, mag:100, maxAmmo:300, spread:0.07, range:350, price:500, owned:false },
+  { id:'ssg',   name:'SSG-08',      dmg:120, rof:1200, reload:2500, mag:10,  maxAmmo:50,  spread:0.01, range:700, price:600, owned:false },
+];
+
+const DIFFICULTIES = [
+  { name:'BEGINNER',   color:'#63a022', speed:0.7, hp:40,  shotCooldown:2800, spread:0.25, credits:15,  range:220 },
+  { name:'NOVICE',     color:'#4a8abf', speed:1.1, hp:65,  shotCooldown:2200, spread:0.18, credits:25,  range:280 },
+  { name:'LIEUTENANT', color:'#EF9F27', speed:1.5, hp:90,  shotCooldown:1600, spread:0.12, credits:40,  range:340 },
+  { name:'ADMIRAL',    color:'#e07020', speed:2.0, hp:130, shotCooldown:1100, spread:0.07, credits:65,  range:400 },
+  { name:'GENERAL',    color:'#e24b4a', speed:2.6, hp:180, shotCooldown:700,  spread:0.03, credits:100, range:460 },
+];
+
+const MAP_OBJECTS = [
+  {x:80,y:80,w:60,h:120},{x:300,y:60,w:80,h:40},{x:540,y:80,w:60,h:120},
+  {x:80,y:280,w:60,h:120},{x:540,y:280,w:60,h:120},
+  {x:230,y:200,w:40,h:40},{x:400,y:220,w:40,h:40},{x:300,y:340,w:80,h:40},
+];
+
+const BOT_NAMES=['Ghost','Reaper','Viper','Cobra','Wolf','Hawk','Storm','Blade','Frost','Raven','Tank','Fury','Zeus','Titan','Shadow'];
+const MAX_BOTS=6, BOT_SPAWN_INTERVAL=4000;
+
+let socket, myId=null, myName='', roomId='', selectedDiff=0;
+let remotePlayers={}, bots=[], localBullets=[], particles=[], bloodPools=[];
+let keys={}, mouse={x:300,y:300}, mouseDown=false, lastShot=0;
+let myWeaponIdx=0, myWeapons=WEAPONS.map(w=>({...w}));
+let myAmmo=30, myReserve=90, myReloading=false, myReloadStart=0;
+let myHp=100, myX=300, myY=300, myAngle=0;
+let myKills=0, myDeaths=0, myCredits=0, myAlive=true;
+let hitmarker=0, hitmarkerKill=false, flashTimer=0, chatOpen=false;
+let lastBotSpawn=0, botIdCounter=0;
+
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight-38;}
+resize(); window.addEventListener('resize',resize);
+
+// Difficulty buttons
+document.querySelectorAll('.diff-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.diff-btn').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedDiff=parseInt(btn.dataset.diff);
+  };
+});
+
+document.getElementById('join-btn').onclick=joinGame;
+document.getElementById('name-input').addEventListener('keydown',e=>{if(e.key==='Enter')joinGame();});
+document.getElementById('room-input').addEventListener('keydown',e=>{if(e.key==='Enter')joinGame();});
+
+function joinGame(){
+  myName=document.getElementById('name-input').value.trim()||('Soldier_'+Math.floor(Math.random()*9999));
+  roomId=document.getElementById('room-input').value.trim()||'default';
+  document.getElementById('lobby').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('chat-box').style.display='block';
+  const diff=DIFFICULTIES[selectedDiff];
+  const badge=document.getElementById('diff-badge');
+  badge.textContent=diff.name; badge.style.background=diff.color; badge.style.color='#000';
+  initSocket();
+  requestAnimationFrame(gameLoop);
+}
+
+function spawnBot(){
+  if(bots.length>=MAX_BOTS) return;
+  const diff=DIFFICULTIES[selectedDiff];
+  const side=Math.floor(Math.random()*4);
+  let x,y; const m=30;
+  if(side===0){x=Math.random()*canvas.width;y=m;}
+  else if(side===1){x=canvas.width-m;y=Math.random()*canvas.height;}
+  else if(side===2){x=Math.random()*canvas.width;y=canvas.height-m;}
+  else{x=m;y=Math.random()*canvas.height;}
+  const name=BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)]+'_'+(++botIdCounter);
+  bots.push({id:'bot_'+botIdCounter,name,x,y,angle:0,hp:diff.hp,maxHp:diff.hp,speed:diff.speed,
+    shotCooldown:diff.shotCooldown,spread:diff.spread,credits:diff.credits,range:diff.range,
+    lastShot:0,color:diff.color,alive:true,wanderAngle:Math.random()*Math.PI*2,wanderTimer:0});
+  document.getElementById('bots-val').textContent=bots.length;
+}
+
+function updateBots(dt){
+  const now=Date.now();
+  if(now-lastBotSpawn>BOT_SPAWN_INTERVAL){spawnBot();lastBotSpawn=now;}
+  for(let i=bots.length-1;i>=0;i--){
+    const bot=bots[i];
+    if(!bot.alive){bots.splice(i,1);document.getElementById('bots-val').textContent=bots.length;continue;}
+    let targetX=myX,targetY=myY,targetDist=Math.hypot(myX-bot.x,myY-bot.y),hasTarget=myAlive;
+    for(const rp of Object.values(remotePlayers)){
+      if(!rp.alive) continue;
+      const d=Math.hypot(rp.x-bot.x,rp.y-bot.y);
+      if(d<targetDist){targetX=rp.x;targetY=rp.y;targetDist=d;}
+    }
+    if(hasTarget&&targetDist<bot.range*1.5){bot.angle=Math.atan2(targetY-bot.y,targetX-bot.x);}
+    else{
+      bot.wanderTimer-=dt;
+      if(bot.wanderTimer<=0){bot.wanderAngle+=(Math.random()-0.5)*1.5;bot.wanderTimer=1200+Math.random()*800;}
+      bot.angle=bot.wanderAngle;
+    }
+    const nx=bot.x+Math.cos(bot.angle)*bot.speed,ny=bot.y+Math.sin(bot.angle)*bot.speed;
+    let blocked=false;
+    for(const obj of MAP_OBJECTS){if(collideWall(nx,bot.y,11,obj)||collideWall(bot.x,ny,11,obj)){blocked=true;break;}}
+    if(!blocked){bot.x=Math.max(14,Math.min(canvas.width-14,nx));bot.y=Math.max(14,Math.min(canvas.height-14,ny));}
+    else{bot.wanderAngle+=Math.PI*0.5+Math.random();}
+    if(hasTarget&&targetDist<bot.range&&now-bot.lastShot>bot.shotCooldown){
+      bot.lastShot=now;
+      const sp=(Math.random()-0.5)*bot.spread,ba=bot.angle+sp;
+      localBullets.push({x:bot.x+Math.cos(bot.angle)*14,y:bot.y+Math.sin(bot.angle)*14,
+        vx:Math.cos(ba)*8,vy:Math.sin(ba)*8,angle:ba,owner:bot.id,
+        dmg:8+selectedDiff*3,range:bot.range,dist:0,isBot:true});
+    }
+  }
+}
+
+function initSocket(){
+  socket=io(SERVER_URL);
+  socket.on('connect',()=>socket.emit('joinRoom',{roomId,name:myName}));
+  socket.on('roomState',({yourId,players})=>{
+    myId=yourId; remotePlayers={};
+    for(const [id,p] of Object.entries(players)){if(id!==myId)remotePlayers[id]={...p};}
+    updatePlayersHUD(); updateScoreboard();
+  });
+  socket.on('playerJoined',p=>{if(p.id===myId)return;remotePlayers[p.id]=p;addKillFeed(p.name+' joined',true);updatePlayersHUD();updateScoreboard();});
+  socket.on('playerMoved',({id,x,y,angle,weapon})=>{if(!remotePlayers[id])return;remotePlayers[id].x=x;remotePlayers[id].y=y;remotePlayers[id].angle=angle;remotePlayers[id].weapon=weapon;});
+  socket.on('bulletFired',b=>localBullets.push({...b,isRemote:true}));
+  socket.on('youGotHit',({hp})=>{myHp=hp;flashTimer=250;updateHpHUD();});
+  socket.on('playerKilled',({killerId,killerName,targetId,targetName})=>{
+    addKillFeed(killerName+' killed '+targetName);
+    if(targetId===myId){myAlive=false;myDeaths++;document.getElementById('dead-banner').style.display='block';document.getElementById('kd-val').textContent=myKills+' / '+myDeaths;}
+    if(killerId===myId){myKills++;myCredits+=50;hitmarker=1;hitmarkerKill=true;document.getElementById('kd-val').textContent=myKills+' / '+myDeaths;document.getElementById('credits-val').textContent=myCredits;}
+    if(remotePlayers[targetId])remotePlayers[targetId].alive=false;
+    updateScoreboard();
+  });
+  socket.on('playerRespawned',({id,x,y})=>{
+    if(id===myId){myHp=100;myAlive=true;myX=x;myY=y;document.getElementById('dead-banner').style.display='none';updateHpHUD();}
+    else if(remotePlayers[id]){remotePlayers[id].x=x;remotePlayers[id].y=y;remotePlayers[id].hp=100;remotePlayers[id].alive=true;}
+  });
+  socket.on('playerLeft',({id,name})=>{delete remotePlayers[id];addKillFeed(name+' left',true);updatePlayersHUD();updateScoreboard();});
+  socket.on('chatMsg',({name,msg})=>addChatMsg(name,msg));
+}
+
+canvas.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY-38;});
+canvas.addEventListener('mousedown',e=>{if(e.button===0&&!chatOpen)mouseDown=true;});
+canvas.addEventListener('mouseup',()=>mouseDown=false);
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('keydown',e=>{
+  if(chatOpen)return;
+  keys[e.key.toLowerCase()]=true;
+  if(e.key.toLowerCase()==='r')startReload();
+  if(e.key.toLowerCase()==='b')toggleShop();
+  if(e.key==='Tab'){e.preventDefault();document.getElementById('scoreboard').style.display='block';}
+  if(e.key.toLowerCase()==='t'){e.preventDefault();openChat();}
+});
+window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;if(e.key==='Tab')document.getElementById('scoreboard').style.display='none';});
+document.getElementById('reload-btn').onclick=startReload;
+document.getElementById('shop-btn').onclick=toggleShop;
+document.getElementById('close-shop').onclick=()=>document.getElementById('shop-panel').style.display='none';
+document.getElementById('score-btn').onclick=()=>{const sb=document.getElementById('scoreboard');sb.style.display=sb.style.display==='block'?'none':'block';};
+document.getElementById('chat-send').onclick=sendChat;
+document.getElementById('chat-input').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();if(e.key==='Escape')closeChat();e.stopPropagation();});
+function openChat(){chatOpen=true;document.getElementById('chat-input').focus();}
+function closeChat(){chatOpen=false;document.getElementById('chat-input').blur();}
+function sendChat(){const ci=document.getElementById('chat-input');const msg=ci.value.trim();if(msg&&socket)socket.emit('chatMsg',msg);ci.value='';closeChat();}
+
+const SEND_INTERVAL=50; let lastSend=0;
+function getWeapon(){return myWeapons[myWeaponIdx];}
+
+function shoot(){
+  if(!myAlive||!socket)return;
+  const now=Date.now(),w=getWeapon();
+  if(now-lastShot<w.rof||myReloading)return;
+  if(myAmmo<=0){startReload();return;}
+  lastShot=now; myAmmo--;
+  const sp=(Math.random()-0.5)*w.spread,ba=myAngle+sp;
+  const bx=myX+Math.cos(myAngle)*18,by=myY+Math.sin(myAngle)*18;
+  localBullets.push({x:bx,y:by,vx:Math.cos(ba)*10,vy:Math.sin(ba)*10,angle:ba,owner:myId,dmg:w.dmg,range:w.range,dist:0});
+  socket.emit('shoot',{x:bx,y:by,vx:Math.cos(ba)*10,vy:Math.sin(ba)*10,angle:ba,dmg:w.dmg,range:w.range});
+  spawnParticles(bx,by,'#ffe080',3,1.5);
+  updateAmmoHUD();
+}
+
+function startReload(){
+  const w=getWeapon();
+  if(myReloading||myReserve<=0||myAmmo===w.mag)return;
+  myReloading=true; myReloadStart=Date.now();
+  setTimeout(()=>{if(!myAlive)return;const take=Math.min(w.mag-myAmmo,myReserve);myAmmo+=take;myReserve-=take;myReloading=false;updateAmmoHUD();},w.reload);
+}
+
+function collideWall(x,y,r,obj){return x+r>obj.x&&x-r<obj.x+obj.w&&y+r>obj.y&&y-r<obj.y+obj.h;}
+
+function showCreditPopup(x,y,amount){
+  const div=document.createElement('div');
+  div.className='credit-popup'; div.textContent='+'+amount+' CR';
+  div.style.left=(x-20)+'px'; div.style.top=(y+38-30)+'px';
+  document.body.appendChild(div); setTimeout(()=>div.remove(),1200);
+}
+
+function update(dt){
+  if(!myAlive)return;
+  let dx=0,dy=0;
+  if(keys['w']||keys['arrowup'])dy-=2.8;
+  if(keys['s']||keys['arrowdown'])dy+=2.8;
+  if(keys['a']||keys['arrowleft'])dx-=2.8;
+  if(keys['d']||keys['arrowright'])dx+=2.8;
+  if(dx&&dy){dx*=0.707;dy*=0.707;}
+  let nx=Math.max(14,Math.min(canvas.width-14,myX+dx));
+  let ny=Math.max(14,Math.min(canvas.height-14,myY+dy));
+  for(const obj of MAP_OBJECTS){if(collideWall(nx,myY,12,obj))nx=myX;}
+  for(const obj of MAP_OBJECTS){if(collideWall(myX,ny,12,obj))ny=myY;}
+  myX=nx; myY=ny;
+  myAngle=Math.atan2(mouse.y-myY,mouse.x-myX);
+  if(mouseDown)shoot();
+  const now=Date.now();
+  if(now-lastSend>SEND_INTERVAL&&socket){socket.emit('playerUpdate',{x:myX,y:myY,angle:myAngle,weapon:getWeapon().name});lastSend=now;}
+
+  updateBots(dt);
+
+  for(let i=localBullets.length-1;i>=0;i--){
+    const b=localBullets[i];
+    b.x+=b.vx; b.y+=b.vy; b.dist+=Math.hypot(b.vx,b.vy);
+    let remove=false;
+    if(b.x<0||b.x>canvas.width||b.y<0||b.y>canvas.height)remove=true;
+    if(b.dist>b.range)remove=true;
+    for(const obj of MAP_OBJECTS){if(b.x>obj.x&&b.x<obj.x+obj.w&&b.y>obj.y&&b.y<obj.y+obj.h){spawnParticles(b.x,b.y,'#888',4,2);remove=true;}}
+
+    if(!remove&&b.owner===myId){
+      for(let j=bots.length-1;j>=0;j--){
+        const bot=bots[j]; if(!bot.alive)continue;
+        if(Math.hypot(b.x-bot.x,b.y-bot.y)<13){
+          bot.hp-=b.dmg; spawnParticles(b.x,b.y,'#a32d2d',8,3); hitmarker=1;
+          if(bot.hp<=0){
+            bot.alive=false; hitmarkerKill=true; myKills++; myCredits+=bot.credits;
+            bloodPools.push({x:bot.x,y:bot.y,r:10+Math.random()*8,alpha:0.9,angle:Math.random()*Math.PI});
+            addKillFeed('You killed '+bot.name+' ('+DIFFICULTIES[selectedDiff].name+')');
+            addKillFeed('+'+bot.credits+' credits',false,true);
+            showCreditPopup(bot.x,bot.y,bot.credits);
+            document.getElementById('kd-val').textContent=myKills+' / '+myDeaths;
+            document.getElementById('credits-val').textContent=myCredits;
+          }else{hitmarkerKill=false;}
+          remove=true; break;
+        }
+      }
+    }
+    if(!remove&&b.owner===myId){
+      for(const [id,rp] of Object.entries(remotePlayers)){
+        if(!rp.alive)continue;
+        if(Math.hypot(b.x-rp.x,b.y-rp.y)<14){if(socket)socket.emit('playerHit',{targetId:id,dmg:b.dmg});hitmarker=1;hitmarkerKill=false;spawnParticles(b.x,b.y,'#a32d2d',8,3);remove=true;break;}
+      }
+    }
+    if(!remove&&b.isBot){
+      if(Math.hypot(b.x-myX,b.y-myY)<14){
+        myHp=Math.max(0,myHp-b.dmg); flashTimer=250; spawnParticles(b.x,b.y,'#e24b4a',5,2); updateHpHUD();
+        if(myHp<=0){
+          myAlive=false; myDeaths++; document.getElementById('dead-banner').style.display='block';
+          document.getElementById('dead-msg').textContent='Respawning in 3s...';
+          document.getElementById('kd-val').textContent=myKills+' / '+myDeaths;
+          setTimeout(()=>{myHp=100;myAlive=true;myX=150+Math.random()*400;myY=100+Math.random()*280;document.getElementById('dead-banner').style.display='none';updateHpHUD();},3000);
+        }
+        remove=true;
+      }
+    }
+    if(!remove&&!b.isBot&&b.owner!==myId){
+      if(Math.hypot(b.x-myX,b.y-myY)<14){if(socket)socket.emit('playerHit',{targetId:myId,dmg:b.dmg});remove=true;}
+    }
+    if(remove)localBullets.splice(i,1);
+  }
+
+  for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vx*=0.88;p.vy*=0.88;p.alpha-=0.03;if(p.alpha<=0)particles.splice(i,1);}
+  if(hitmarker>0)hitmarker-=0.06;
+  if(flashTimer>0)flashTimer-=dt;
+}
+
+function spawnParticles(x,y,color,count,speed){
+  for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,s=(0.5+Math.random())*speed;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:1.5+Math.random()*2.5,alpha:1,color});}
+}
+
+function drawMap(){
+  ctx.fillStyle='#1a1a18'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#1e1e1c';
+  for(let gx=0;gx<canvas.width;gx+=40)for(let gy=0;gy<canvas.height;gy+=40)if((gx+gy)%80===0)ctx.fillRect(gx,gy,40,40);
+  ctx.strokeStyle='#252523'; ctx.lineWidth=0.5;
+  for(let gx=0;gx<canvas.width;gx+=40){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,canvas.height);ctx.stroke();}
+  for(let gy=0;gy<canvas.height;gy+=40){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(canvas.width,gy);ctx.stroke();}
+  for(const obj of MAP_OBJECTS){
+    ctx.fillStyle='#2d2d2a'; ctx.fillRect(obj.x,obj.y,obj.w,obj.h);
+    ctx.fillStyle='#383833'; ctx.fillRect(obj.x+4,obj.y+4,obj.w-8,6);
+    ctx.strokeStyle='#444440'; ctx.lineWidth=1; ctx.strokeRect(obj.x,obj.y,obj.w,obj.h);
+  }
+  for(const bp of bloodPools){ctx.globalAlpha=bp.alpha*0.5;ctx.fillStyle='#5a0a0a';ctx.beginPath();ctx.ellipse(bp.x,bp.y,bp.r,bp.r*0.6,bp.angle,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
+}
+
+function drawSoldier(x,y,angle,color,name,hp,maxHp,isMe,isBot){
+  ctx.save(); ctx.translate(x,y);
+  ctx.globalAlpha=0.2; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(3,3,10,10,0,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
+  ctx.rotate(angle);
+  ctx.fillStyle=color; ctx.beginPath(); ctx.arc(0,0,11,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=isMe?'#2a6a2a':'#000'; ctx.lineWidth=isMe?2:1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(-1,-1,7,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=isMe?'#5a8a5a':'#555'; ctx.fillRect(2,-3,14,5);
+  ctx.fillStyle='#e0d0c0'; ctx.beginPath(); ctx.arc(-1,-1,4,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  const hpRatio=hp/maxHp;
+  ctx.fillStyle='#111'; ctx.fillRect(x-14,y-18,28,4);
+  ctx.fillStyle=isBot?DIFFICULTIES[selectedDiff].color:(hpRatio>0.5?'#63a022':hpRatio>0.25?'#EF9F27':'#e24b4a');
+  ctx.fillRect(x-14,y-18,28*hpRatio,4);
+  if(!isMe){ctx.fillStyle=isBot?DIFFICULTIES[selectedDiff].color:'#888';ctx.font='9px Courier New';ctx.textAlign='center';ctx.fillText(name,x,y-22);}
+}
+
+function drawBullets(){for(const b of localBullets){ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.angle);ctx.fillStyle=b.owner===myId?'#ffe080':b.isBot?DIFFICULTIES[selectedDiff].color:'#ff6060';ctx.beginPath();ctx.ellipse(0,0,5,2,0,0,Math.PI*2);ctx.fill();ctx.restore();}}
+function drawParticles(){for(const p of particles){ctx.globalAlpha=p.alpha;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}}
+
+function drawHitmarker(){
+  if(hitmarker<=0)return;
+  const cx=canvas.width/2,cy=canvas.height/2;
+  ctx.strokeStyle=hitmarkerKill?'#e24b4a':'#fff'; ctx.lineWidth=2; ctx.globalAlpha=hitmarker;
+  const d=6,g=4;
+  [[cx-d-g,cy,cx-g,cy],[cx+g,cy,cx+d+g,cy],[cx,cy-d-g,cx,cy-g],[cx,cy+g,cx,cy+d+g]].forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();});
+  ctx.globalAlpha=1;
+}
+
+function drawReloadBar(){
+  if(!myReloading)return;
+  const w=getWeapon(),prog=Math.min((Date.now()-myReloadStart)/w.reload,1);
+  const bw=80,bh=5,bx=myX-40,by=myY-28;
+  ctx.fillStyle='#111'; ctx.fillRect(bx,by,bw,bh);
+  ctx.fillStyle='#EF9F27'; ctx.fillRect(bx,by,bw*prog,bh);
+  ctx.fillStyle='#777'; ctx.font='9px Courier New'; ctx.textAlign='center'; ctx.fillText('RELOADING',myX,by-3);
+}
+
+function drawCrosshair(){
+  const cx=mouse.x,cy=mouse.y,spread=getWeapon().spread*200+12;
+  ctx.strokeStyle='rgba(255,255,255,0.75)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.stroke();
+  const g=4;
+  [[cx-spread,cy,cx-g,cy],[cx+g,cy,cx+spread,cy],[cx,cy-spread,cx,cy-g],[cx,cy+g,cx,cy+spread]].forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();});
+}
+
+let lastTime=0;
+function gameLoop(ts){
+  const dt=ts-lastTime; lastTime=ts;
+  if(socket)update(dt);
+  drawMap();
+  for(const bot of bots){if(bot.alive)drawSoldier(bot.x,bot.y,bot.angle,bot.color,bot.name,bot.hp,bot.maxHp,false,true);}
+  for(const [id,rp] of Object.entries(remotePlayers)){if(rp.alive!==false)drawSoldier(rp.x,rp.y,rp.angle,rp.color||'#7a4a22',rp.name,rp.hp||100,100,false,false);}
+  if(myAlive)drawSoldier(myX,myY,myAngle,'#4a7a4a',myName,myHp,100,true,false);
+  drawBullets(); drawParticles(); drawReloadBar(); drawCrosshair(); drawHitmarker();
+  if(flashTimer>0){ctx.fillStyle='rgba(180,0,0,'+(flashTimer/600*0.3)+')';ctx.fillRect(0,0,canvas.width,canvas.height);}
+  requestAnimationFrame(gameLoop);
+}
+
+function updateHpHUD(){const r=myHp/100;document.getElementById('hp-val').textContent=myHp;document.getElementById('health-bar').style.width=(r*100)+'%';document.getElementById('health-bar').style.background=r>0.5?'#63a022':r>0.25?'#EF9F27':'#e24b4a';}
+function updateAmmoHUD(){document.getElementById('ammo-val').textContent=myAmmo+'/'+myReserve;}
+function updatePlayersHUD(){document.getElementById('players-val')&&(document.getElementById('players-val').textContent=Object.keys(remotePlayers).length+1);}
+function updateScoreboard(){
+  const tbody=document.getElementById('score-body');
+  const all=[{name:myName,kills:myKills,deaths:myDeaths,credits:myCredits,isMe:true},...Object.values(remotePlayers).map(p=>({name:p.name,kills:p.kills||0,deaths:p.deaths||0,credits:p.credits||0,isMe:false}))].sort((a,b)=>b.kills-a.kills);
+  tbody.innerHTML=all.map(p=>`<tr class="${p.isMe?'score-me':''}"><td>${p.name}${p.isMe?' (you)':''}</td><td>${p.kills}</td><td>${p.deaths}</td><td>${p.credits}</td></tr>`).join('');
+}
+function addKillFeed(msg,info=false,credit=false){const feed=document.getElementById('kill-feed');const div=document.createElement('div');div.className='kf-entry'+(info?' info':credit?' credit':'');div.textContent=msg;feed.appendChild(div);setTimeout(()=>div.remove(),2500);}
+function addChatMsg(name,msg){const msgs=document.getElementById('chat-msgs');const div=document.createElement('div');div.className='chat-msg';div.innerHTML=`<span class="chat-name">${name}:</span> ${msg}`;msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;}
+
+function toggleShop(){const sp=document.getElementById('shop-panel');sp.style.display=sp.style.display==='block'?'none':'block';if(sp.style.display==='block')buildShop();}
+function buildShop(){
+  document.getElementById('shop-credits-label').textContent='Credits: '+myCredits;
+  const grid=document.getElementById('shop-grid'); grid.innerHTML='';
+  myWeapons.forEach((w,i)=>{
+    const div=document.createElement('div');
+    div.className='shop-item'+(w.owned?(i===myWeaponIdx?' equipped':' owned'):'');
+    div.innerHTML=`<div class="item-name">${w.name}</div><div class="item-stat">DMG: ${w.dmg} | ROF: ${Math.round(60000/w.rof)}/min</div><div class="item-stat">MAG: ${w.mag}</div><div class="item-price ${w.owned?'owned':''}">${w.owned?(i===myWeaponIdx?'EQUIPPED':'EQUIP'):w.price+' CR'}</div>`;
+    div.onclick=()=>{
+      if(!w.owned){if(myCredits<w.price){addKillFeed('Not enough credits!');return;}myCredits-=w.price;w.owned=true;document.getElementById('credits-val').textContent=myCredits;}
+      myWeaponIdx=i;myAmmo=w.mag;myReserve=w.maxAmmo;myReloading=false;
+      document.getElementById('weapon-val').textContent=w.name;updateAmmoHUD();buildShop();
+    };
+    grid.appendChild(div);
+  });
+}
+</script>
+</body>
+</html>
+
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#0a0a0a; color:#e0e0e0; font-family:'Courier New',monospace; overflow:hidden; }
