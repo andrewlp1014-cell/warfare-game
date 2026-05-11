@@ -302,9 +302,17 @@ function joinGame(){
 
   // Spawn in center of map
   const map=MAPS[selectedMap].grid;
-  for(let y=1;y<map.length-1;y++){
-    for(let x=1;x<map[y].length-1;x++){
-      if(map[y][x]==='0'){ px=x+0.5; py=y+0.5; break; }
+  const midY=Math.floor(map.length/2);
+  const midX=Math.floor(map[0].length/2);
+  for(let r=0;r<5;r++){
+    let found=false;
+    for(let dy=-r;dy<=r&&!found;dy++){
+      for(let dx=-r;dx<=r&&!found;dx++){
+        const ty=midY+dy, tx=midX+dx;
+        if(ty>0&&ty<map.length-1&&tx>0&&tx<map[0].length-1&&map[ty][tx]==='0'){
+          px=tx+0.5; py=ty+0.5; found=true;
+        }
+      }
     }
     if(px!==1.5) break;
   }
@@ -608,8 +616,8 @@ function castRay(angle){
 function drawScene(){
   const W=canvas.width, H=canvas.height;
   const map=MAPS[selectedMap];
-  const fov=Math.PI/2.5;
-  const numRays=Math.floor(W/2);
+  const fov=Math.PI/2;
+  const numRays=Math.floor(W/1.5);
 
   // Floor and ceiling
   ctx.fillStyle=map.ceilColor;
