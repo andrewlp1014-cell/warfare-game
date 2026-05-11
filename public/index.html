@@ -720,43 +720,72 @@ function drawScene(){
 function drawGun(){
   const W=canvas.width, H=canvas.height;
   const w=getWeapon();
-  const bobX=Math.sin(bobTimer)*8;
-  const bobY=Math.abs(Math.sin(bobTimer*2))*6;
-  const flash=muzzleFlash>0;
-  const recoil=flash?-20:0;
+  const bobX=Math.sin(bobTimer)*6;
+  const bobY=Math.abs(Math.sin(bobTimer*2))*4;
+  const recoil=muzzleFlash>0?8:0;
 
-  const gx=W*0.55+bobX, gy=H*0.7+bobY+recoil;
-  const gw=W*0.22, gh=W*0.08;
+  // Base position - bottom center-right
+  const baseX=W*0.5+bobX;
+  const baseY=H-60+bobY+recoil;
 
-  // Gun body
-  ctx.fillStyle='#2a2a2a';
-  ctx.fillRect(gx,gy,gw,gh*0.5);
-  ctx.fillStyle='#1a1a1a';
-  ctx.fillRect(gx,gy+gh*0.5,gw*0.7,gh*0.5);
-  // Barrel
-  ctx.fillStyle='#333';
-  ctx.fillRect(gx+gw*0.6,gy-gh*0.1,gw*w.barrelLen,gh*0.2);
-  // Details
-  ctx.fillStyle='#444';
-  ctx.fillRect(gx+gw*0.1,gy+gh*0.1,gw*0.5,gh*0.15);
-  // Grip
+  // Gun body (horizontal, straight)
   ctx.fillStyle='#222';
-  ctx.fillRect(gx+gw*0.15,gy+gh*0.5,gw*0.15,gh*0.6);
+  ctx.fillRect(baseX-20, baseY-10, 140, 22); // main body
+
+  // Barrel (straight forward, top of gun)
+  ctx.fillStyle='#333';
+  ctx.fillRect(baseX+80, baseY-14, 60, 10); // barrel extending right
+
+  // Rail on top
+  ctx.fillStyle='#1a1a1a';
+  ctx.fillRect(baseX-10, baseY-14, 90, 6);
+
+  // Magazine
+  ctx.fillStyle='#1a1a1a';
+  ctx.fillRect(baseX+20, baseY+12, 20, 28);
+
+  // Grip
+  ctx.fillStyle='#1a1a1a';
+  ctx.fillRect(baseX+50, baseY+10, 18, 32);
+
+  // Stock
+  ctx.fillStyle='#2a2020';
+  ctx.fillRect(baseX-20, baseY-6, 18, 16);
+
+  // Trigger guard
+  ctx.strokeStyle='#333';
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.arc(baseX+38, baseY+14, 10, 0, Math.PI);
+  ctx.stroke();
+
   // Hands
-  ctx.fillStyle='#c8a080';
-  ctx.fillRect(gx+gw*0.05,gy+gh*0.3,gw*0.2,gh*0.5);
-  ctx.fillRect(gx+gw*0.5,gy+gh*0.1,gw*0.25,gh*0.4);
+  ctx.fillStyle='#c8a070';
+  // Left hand on grip
+  ctx.fillRect(baseX+16, baseY+8, 26, 18);
+  // Right hand on stock area
+  ctx.fillRect(baseX+48, baseY+8, 22, 20);
 
   // Muzzle flash
-  if(flash){
-    ctx.fillStyle='rgba(255,220,80,0.9)';
+  if(muzzleFlash>0){
+    ctx.fillStyle='rgba(255,220,60,0.95)';
     ctx.beginPath();
-    ctx.arc(gx+gw*(0.6+w.barrelLen)+4,gy-gh*0.05+gh*0.1,gh*0.4,0,Math.PI*2);
+    ctx.arc(baseX+148, baseY-9, 14, 0, Math.PI*2);
     ctx.fill();
-    ctx.fillStyle='rgba(255,255,200,0.7)';
+    ctx.fillStyle='rgba(255,255,180,0.8)';
     ctx.beginPath();
-    ctx.arc(gx+gw*(0.6+w.barrelLen)+4,gy-gh*0.05+gh*0.1,gh*0.2,0,Math.PI*2);
+    ctx.arc(baseX+148, baseY-9, 7, 0, Math.PI*2);
     ctx.fill();
+    // Flash rays
+    ctx.strokeStyle='rgba(255,200,50,0.6)';
+    ctx.lineWidth=2;
+    for(let i=0;i<6;i++){
+      const a=i*Math.PI/3;
+      ctx.beginPath();
+      ctx.moveTo(baseX+148+Math.cos(a)*8, baseY-9+Math.sin(a)*8);
+      ctx.lineTo(baseX+148+Math.cos(a)*20, baseY-9+Math.sin(a)*20);
+      ctx.stroke();
+    }
   }
 }
 
