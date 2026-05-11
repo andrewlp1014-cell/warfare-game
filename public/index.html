@@ -304,22 +304,7 @@ function joinGame(){
   myName=document.getElementById('name-input').value.trim()||('Soldier_'+Math.floor(Math.random()*9999));
   roomId=document.getElementById('room-input').value.trim()||'default';
 
-  // Spawn in center of map
-  const map=MAPS[selectedMap].grid;
-  const midY=Math.floor(map.length/2);
-  const midX=Math.floor(map[0].length/2);
-  for(let r=0;r<5;r++){
-    let found=false;
-    for(let dy=-r;dy<=r&&!found;dy++){
-      for(let dx=-r;dx<=r&&!found;dx++){
-        const ty=midY+dy, tx=midX+dx;
-        if(ty>0&&ty<map.length-1&&tx>0&&tx<map[0].length-1&&map[ty][tx]==='0'){
-          px=tx+0.5; py=ty+0.5; found=true;
-        }
-      }
-    }
-    if(px!==1.5) break;
-  }
+  px=8; py=8; pAngle=0;
 
   document.getElementById('lobby').style.display='none';
   document.getElementById('hud').style.display='flex';
@@ -634,7 +619,7 @@ function drawScene(){
     const rayAngle=pAngle-fov/2+fov*(i/numRays);
     const {dist,side}=castRay(rayAngle);
     const corrDist=dist*Math.cos(rayAngle-pAngle);
-    const wallH=Math.min(H/(corrDist*0.8),H);
+    const wallH=Math.min(H/(corrDist*1.8),H*0.8);
     const wallTop=(H-wallH)/2+bobAmt;
 
     let brightness=Math.max(0,1-corrDist/15);
