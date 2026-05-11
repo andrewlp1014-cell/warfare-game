@@ -584,7 +584,8 @@ function drawAmmoCrates(){
     ctx.lineWidth=1;
     ctx.beginPath();ctx.arc(crate.x,crate.y,16,0,Math.PI*2);ctx.stroke();
   }
-}for(const b of localBullets){ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.angle);ctx.fillStyle=b.owner===myId?'#ffe080':b.isBot?DIFFICULTIES[selectedDiff].color:'#ff6060';ctx.beginPath();ctx.ellipse(0,0,5,2,0,0,Math.PI*2);ctx.fill();ctx.restore();}}
+}
+function drawBullets(){for(const b of localBullets){ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.angle);ctx.fillStyle=b.owner===myId?'#ffe080':b.isBot?DIFFICULTIES[selectedDiff].color:'#ff6060';ctx.beginPath();ctx.ellipse(0,0,5,2,0,0,Math.PI*2);ctx.fill();ctx.restore();}}
 function drawParticles(){for(const p of particles){ctx.globalAlpha=p.alpha;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}}
 
 function drawHitmarker(){
@@ -657,3 +658,4 @@ function buildShop(){
 </script>
 </body>
 </html>
+
